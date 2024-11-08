@@ -1,4 +1,6 @@
-import { Plugin, SettingTab } from 'obsidian';
+import {Plugin, SettingTab} from 'obsidian';
+import * as fs from "fs";
+import * as path from "path";
 import { Fit, OctokitHttpError } from 'src/fit';
 import FitNotice from 'src/fitNotice';
 import FitSettingTab from 'src/fitSetting';
@@ -243,7 +245,57 @@ export default class FitPlugin extends Plugin {
 		
 		// register interval to repeat auto check
 		await this.startOrUpdateAutoSyncInterval();
+
+		this.addCommand({
+			id: "test-get-all-files",
+			name: "Test Get All Files",
+			callback: async () => {
+				const vaultOps = new VaultOperations(this.app.vault);
+				const allFiles = await vaultOps.getAllFiles();
+				console.log("All files in the vault:", allFiles.map(f => f.path));
+			}
+		});
+		this.addCommand({
+			id: "test-nodejs-hidden-files",
+			name: "Test Node.js Access to Hidden Files (.obsidian and .git)",
+			callback: async () => {
+				const vaultPath = (this.app.vault.adapter as any).basePath;
+
+				// Paths to check
+				const hiddenFolders = [".obsidian", ".git"];
+
+				hiddenFolders.forEach(folderName => {
+					const folderPath = path.join(vaultPath, folderName);
+
+					if (fs.existsSync(folderPath) && fs.lstatSync(folderPath).isDirectory()) {
+						console.log(`Found folder: ${folderPath}`);
+						const files = this.listFilesRecursively(folderPath);
+						console.log(`Files in ${folderPath}:`, files);
+					} else {
+						console.log(`Folder not found or inaccessible: ${folderPath}`);
+					}
+				});
+			}
+		});
+
 	}
+
+	// Helper method to recursively list all files in a directory
+	listFilesRecursively(dir: string): string[] {
+		const results: string[] = [];
+
+		fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {
+			const entryPath = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				results.push(...this.listFilesRecursively(entryPath));
+			} else {
+				results.push(entryPath);
+			}
+		});
+
+		return results;
+	}
+
 
 	onunload() {
 		if (this.autoSyncIntervalId !== null) {

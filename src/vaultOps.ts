@@ -1,4 +1,4 @@
-import { TFile, Vault, base64ToArrayBuffer } from "obsidian";
+import {TFile, Vault, base64ToArrayBuffer, TFolder} from "obsidian";
 import { FileOpRecord } from "./fitTypes";
 
 
@@ -19,7 +19,35 @@ export class VaultOperations implements IVaultOperations {
         this.vault = vault
     }
 
-    async getTFile(path: string): Promise<TFile> {
+	async getAllFiles(): Promise<TFile[]> {
+		const files: TFile[] = [];
+		const rootFolder = this.vault.getRoot();
+
+		const recurseFolder = (folder: TFolder) => {
+			folder.children.forEach(child => {
+				if (child instanceof TFile) {
+					// Add all files, including any specific ones we want
+					files.push(child);
+				} else if (child instanceof TFolder) {
+					// Recursively search subfolders
+					recurseFolder(child);
+				}
+			});
+		};
+
+		// Start recursion from root
+		recurseFolder(rootFolder);
+
+		// Explicitly add .obsidian files and configurations if present
+		const obsidianConfigFolder = this.vault.getAbstractFileByPath(".obsidian");
+		if (obsidianConfigFolder && obsidianConfigFolder instanceof TFolder) {
+			recurseFolder(obsidianConfigFolder);
+		}
+
+		return files;
+	}
+
+	async getTFile(path: string): Promise<TFile> {
         const file = this.vault.getAbstractFileByPath(path)
         if (file && file instanceof TFile) {
             return file
